@@ -16,7 +16,7 @@ Route::prefix('admin/users')->middleware('admin')->controller(AdminUserControlle
     Route::post('{user}/ban', 'ban')->middleware('can:users.ban');
     Route::post('{user}/unban', 'unban')->middleware('can:users.unban');
 
-    Route::put('{user}/account-type', 'changeAccountType')->middleware('can:users.change-account-type');
+    Route::put('{user}/account-type', 'changeAccountType')->middleware(['can:users.change-account-type', 'throttle:sensitive']);
     Route::delete('{user}/sessions', 'revokeSessions')->middleware('can:users.revoke-sessions');
-    Route::put('{user}/roles', 'syncRoles')->middleware('can:roles.assign');
+    Route::put('{user}/roles', 'syncRoles')->middleware(['can:roles.assign', 'throttle:sensitive']);
 });

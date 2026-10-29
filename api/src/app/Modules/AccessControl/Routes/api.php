@@ -15,7 +15,7 @@ Route::prefix('admin/access')->middleware('admin')->group(function () {
     Route::get('roles/{role}', [RoleController::class, 'show'])->middleware('can:roles.view');
     Route::patch('roles/{role}', [RoleController::class, 'update'])->middleware('can:roles.update');
     Route::delete('roles/{role}', [RoleController::class, 'destroy'])->middleware('can:roles.delete');
-    Route::put('roles/{role}/permissions', [RoleController::class, 'syncPermissions'])->middleware('can:roles.assign-permissions');
+    Route::put('roles/{role}/permissions', [RoleController::class, 'syncPermissions'])->middleware(['can:roles.assign-permissions', 'throttle:sensitive']);
 
     Route::get('audit-logs', [AuditLogController::class, 'index'])->middleware('can:audit.view');
 });

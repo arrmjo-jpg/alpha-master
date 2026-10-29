@@ -2,12 +2,15 @@
 
 namespace App\Modules\Users\Http\Requests;
 
+use App\Modules\Core\Http\Requests\AuditsPasswordReconfirmation;
 use App\Modules\Users\Enums\AccountType;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class ChangeAccountTypeRequest extends FormRequest
 {
+    use AuditsPasswordReconfirmation;
+
     public function rules(): array
     {
         return [

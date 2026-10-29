@@ -35,6 +35,7 @@ api/src/app/Modules/
    - the target's permissions must be a subset of yours
    - grant ceiling
    - last usable admin (with row locks)
+   - **role edits and deletes:** the actor must also be able to manage every holder of the role
 
 Steps 2–4 run before route-model binding, so a non-admin always gets 403, never 404.
 
@@ -65,9 +66,9 @@ All endpoints are JSON under `/api/v1`. Errors use `application/problem+json` (�
 | `PATCH /admin/users/{id}` | `users.update` | `name`, `username`, `email` (clears verification), `preferred_locale` |
 | `POST /admin/users/{id}/activate` · `/deactivate` | `users.activate` · `users.deactivate` | Deactivating revokes all tokens and sessions |
 | `POST /admin/users/{id}/ban` · `/unban` | `users.ban` · `users.unban` | `reason` is required (stored, admin-only, not copied into the audit log) |
-| `PUT /admin/users/{id}/account-type` | `users.change-account-type` | `account_type`, `current_password`. Leaving `admin` removes all roles; any change revokes credentials |
+| `PUT /admin/users/{id}/account-type` | `users.change-account-type` + `throttle:sensitive` | `account_type`, `current_password`. Leaving `admin` removes all roles; any change revokes credentials |
 | `DELETE /admin/users/{id}/sessions` | `users.revoke-sessions` | |
-| `PUT /admin/users/{id}/roles` | `roles.assign` | `roles` (ids), `current_password`. Admin accounts only; protected roles refused; grant ceiling applies |
+| `PUT /admin/users/{id}/roles` | `roles.assign` + `throttle:sensitive` | `roles` (ids), `current_password`. Admin accounts only; protected roles refused; grant ceiling applies |
 
 ### Admin: access (`/admin/access`)
 
@@ -78,7 +79,7 @@ All endpoints are JSON under `/api/v1`. Errors use `application/problem+json` (�
 | `POST /admin/access/roles` | `roles.create` | `name` (stable key), `display_name` `{ar,en}` (both required), `description` `{ar,en}` |
 | `PATCH /admin/access/roles/{id}` | `roles.update` | Labels only. The key is immutable. Protected roles are refused |
 | `DELETE /admin/access/roles/{id}` | `roles.delete` | Grant ceiling applies; protected roles are refused |
-| `PUT /admin/access/roles/{id}/permissions` | `roles.assign-permissions` | `permissions` (names), `current_password`. Every added **and** removed permission must be held by the actor |
+| `PUT /admin/access/roles/{id}/permissions` | `roles.assign-permissions` + `throttle:sensitive` | `permissions` (names), `current_password`. Every added **and** removed permission must be held by the actor, and the actor must be able to manage every holder of the role |
 | `GET /admin/access/audit-logs` | `audit.view` | Filters: `event`, `outcome`, `actor_id`, `subject_type`, `subject_id`, `from`, `to`. Cursor pagination |
 
 ## 4. Permission catalog (17 permissions, 4 groups)
@@ -114,7 +115,7 @@ How the catalog works:
 
 - `code` and the field rule codes are stable across languages. `title` and `message` follow `Accept-Language`.
 - `trace_id` equals the `X-Request-Id` response header.
-- Production (`APP_DEBUG=false`) never includes exception classes, messages, SQL or traces. This is tested.
+- 500 responses include a `debug` block only when `APP_DEBUG=true` **and** `APP_ENV=local`. Anywhere else, exception classes, messages, SQL and traces never appear. Both cases are tested.
 - The codes live in `App\Modules\Core\Errors\ErrorCode`.
 
 ## 6. Localization
@@ -183,10 +184,15 @@ CI (`.github/workflows/ci.yml`):
 | `SESSION_SECURE_COOKIE` | `false` | **Must be `true` in production (HTTPS)** |
 | `SANCTUM_ADMIN_TOKEN_TTL_DAYS` / `SANCTUM_PUBLIC_TOKEN_TTL_DAYS` | `30` / `90` | Device token lifetimes |
 
+**Docker Compose mode:** the default `COMPOSE_FILE` in `.env.example` is production-safe. The dev override (`APP_ENV=local`, `APP_DEBUG=true`, source mounts) is opt-in and must never be used on a server. CI fails if the documented default enables it.
+
+**Password re-confirmation:** the three endpoints that require `current_password` use the `sensitive` limiter (5 per minute and 30 per hour, per user). Each wrong password is audited as `auth.reconfirm_failed`, without the password.
+
 ## 10. Known limitations and follow-ups
 
 - **Production domains are not decided** (ADR-0003 Q1). SPA cookie auth needs the SPA and the API on the same registrable domain.
 - **No scheduler container** yet, so expired tokens are not pruned automatically (they are still rejected). Add a scheduler that runs `sanctum:prune-expired`.
 - **Rate limiter cache:** the limiter and the permission cache use the database cache store. Redis is recommended before production traffic.
 - **Not in Phase 1:** registration, password reset, email verification, phone OTP, social login, refresh tokens, admin 2FA, Workspaces (D3), and direct user permissions (D4).
+- **Independent review follow-ups (not blocking):** production-only settings should be required at startup (`SESSION_SECURE_COOKIE`, stateful domains, trusted proxies); lock the target row inside the transaction before status and role checks; an admin can still edit their own profile through the admin API; admins without a permission can distinguish existing from missing IDs (403 vs 404); deprecated permissions block managing their holders; strengthen the concurrency test to run the real action on both sides.
 - **`laravel/boost`:** the `CLAUDE.md`/`AGENTS.md` files that came with the Laravel skeleton ask for `laravel/boost` to be installed and for PHP to be installed on the host. Neither was done; that needs the owner's decision.

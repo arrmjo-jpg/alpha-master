@@ -2,11 +2,14 @@
 
 namespace App\Modules\AccessControl\Http\Requests;
 
+use App\Modules\Core\Http\Requests\AuditsPasswordReconfirmation;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class SyncRolePermissionsRequest extends FormRequest
 {
+    use AuditsPasswordReconfirmation;
+
     public function rules(): array
     {
         return [

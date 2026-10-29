@@ -29,6 +29,13 @@ class CoreServiceProvider extends ModuleServiceProvider
         RateLimiter::for('api', fn (Request $request) => Limit::perMinute(120)
             ->by($request->user()?->getAuthIdentifier() ?: $request->ip()));
 
+        // Endpoints that re-confirm the actor's password: tight per-user limits so a
+        // stolen session/token cannot be used to guess it.
+        RateLimiter::for('sensitive', fn (Request $request) => [
+            Limit::perMinute(5)->by('sensitive:'.($request->user()?->getAuthIdentifier() ?: $request->ip())),
+            Limit::perHour(30)->by('sensitive-hour:'.($request->user()?->getAuthIdentifier() ?: $request->ip())),
+        ]);
+
         // Per identifier+IP and per IP (ADR-0009). Keys never contain the password.
         RateLimiter::for('login', function (Request $request) {
             $identifier = Str::lower(trim((string) $request->input('identifier')));

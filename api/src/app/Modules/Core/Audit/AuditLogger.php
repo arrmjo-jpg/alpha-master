@@ -13,7 +13,9 @@ use Illuminate\Support\Str;
  */
 class AuditLogger
 {
-    private const SECRET_KEY_PATTERN = '/pass(word)?|token|secret|otp|api[_-]?key|remember/i';
+    // Whole-key match only: strips secret values (password, token, otp, …) while
+    // keeping references such as token_id or counts like `tokens`.
+    private const SECRET_KEY_PATTERN = '/^(password|password_confirmation|current_password|new_password|pass|token|plain_?text_?token|access_?token|refresh_?token|secret|client_?secret|otp|otp_?code|code|api_?key|remember_?token)$/i';
 
     public function __construct(private readonly Request $request) {}
 

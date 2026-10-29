@@ -58,8 +58,9 @@ final class ProblemRenderer
             'trace_id' => $request->attributes->get('request_id'),
         ], fn ($value) => $value !== null);
 
-        if ($code === ErrorCode::InternalServerError && config('app.debug')) {
-            // Local debugging only; APP_DEBUG is false in production (tested).
+        if ($code === ErrorCode::InternalServerError && config('app.debug') && app()->isLocal()) {
+            // Local debugging only: requires APP_DEBUG=true AND APP_ENV=local, so a
+            // stray APP_DEBUG=true on a server still never leaks exception messages.
             $body['debug'] = ['exception' => $e::class, 'message' => $e->getMessage()];
         }
 
