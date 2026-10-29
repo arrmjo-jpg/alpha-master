@@ -34,6 +34,12 @@ All ADRs below are **Proposed**. Nothing has been implemented, and none of them 
 | [0012](0012-administrative-workspaces.md) | Administrative Workspaces | Proposed | Foundational |
 | 0013 *(pending)* | Notification Center | Not yet written: the brief's Notification Center section was not received | Waiting on the full brief |
 
+## Phase 1 approvals (2026-10-29)
+
+The owner approved decisions **D1–D7** for Phase 1. They are listed in [08-phase-1-plan.md §5](../architecture/08-phase-1-plan.md) and implemented as described in [phase-1-users-access-control.md](../phase-1-users-access-control.md). They cover parts of ADR-0002, 0003, 0004, 0006, 0007 and 0012.
+
+The ADR documents stay **Proposed** as a whole: only the listed decisions are approved, not every recommendation in those ADRs.
+
 ## Briefs these ADRs answer
 
 1. The **Master Architecture Prompt**: modular Laravel app, auth, authorization, API, localization, user management (received 2026-10-29). Covered by ADRs 0001–0011.

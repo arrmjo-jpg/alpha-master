@@ -1,0 +1,30 @@
+<?php
+
+// Problem Details titles, keyed by the stable ErrorCode value.
+return [
+    'BAD_REQUEST' => 'The request is malformed.',
+    'UNAUTHENTICATED' => 'Authentication is required.',
+    'INVALID_CREDENTIALS' => 'The provided credentials are incorrect.',
+    'FORBIDDEN' => 'You are not allowed to perform this action.',
+    'ADMIN_ACCESS_REQUIRED' => 'This area is restricted to administrative accounts.',
+    'ACCOUNT_INACTIVE' => 'This account is inactive.',
+    'ACCOUNT_BANNED' => 'This account is banned.',
+    'STATEFUL_REQUEST_REQUIRED' => 'Session login is only available to first-party web applications. Use a token instead.',
+    'RESOURCE_NOT_FOUND' => 'The requested resource was not found.',
+    'METHOD_NOT_ALLOWED' => 'This HTTP method is not allowed for this endpoint.',
+    'NOT_ACCEPTABLE' => 'The requested response format is not supported.',
+    'CSRF_TOKEN_MISMATCH' => 'The session has expired or the CSRF token is invalid.',
+    'CONFLICT' => 'The request conflicts with the current state of the resource.',
+    'SELF_MODIFICATION_FORBIDDEN' => 'You cannot perform this action on your own account.',
+    'LAST_ADMIN_PROTECTED' => 'This action would leave the system without an active administrator.',
+    'OWNER_PROTECTED' => 'System owner accounts can only be managed from the server command line.',
+    'PROTECTED_ROLE' => 'This role is protected and cannot be changed through the API.',
+    'GRANT_CEILING_EXCEEDED' => 'You cannot grant or remove permissions that you do not hold yourself.',
+    'TARGET_NOT_MANAGEABLE' => 'You cannot manage an account that holds permissions you do not have.',
+    'ROLES_REQUIRE_ADMIN_ACCOUNT' => 'Roles can only be assigned to administrative accounts.',
+    'VALIDATION_ERROR' => 'The submitted data is invalid.',
+    'RATE_LIMIT_EXCEEDED' => 'Too many requests. Please try again later.',
+    'INTERNAL_SERVER_ERROR' => 'An unexpected error occurred.',
+    'SERVICE_UNAVAILABLE' => 'The service is temporarily unavailable.',
+    'HTTP_ERROR' => 'The request could not be completed.',
+];

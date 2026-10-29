@@ -2,24 +2,17 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use App\Modules\AccessControl\Services\PermissionSynchronizer;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
     /**
-     * Seed the application's database.
+     * Reference data only (safe in production, idempotent). No user accounts are
+     * seeded: the first administrator is created with `php artisan users:create-owner`.
      */
-    public function run(): void
+    public function run(PermissionSynchronizer $synchronizer): void
     {
-        // User::factory(10)->create();
-
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        $synchronizer->sync();
     }
 }
