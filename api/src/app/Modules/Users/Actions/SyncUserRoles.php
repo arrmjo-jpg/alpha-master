@@ -4,6 +4,7 @@ namespace App\Modules\Users\Actions;
 
 use App\Models\User;
 use App\Modules\AccessControl\Models\Role;
+use App\Modules\AccessControl\Services\AccessControlLock;
 use App\Modules\AccessControl\Services\PrivilegeGuard;
 use App\Modules\Core\Audit\AuditLogger;
 use App\Modules\Core\Audit\GuardedOperation;
@@ -23,6 +24,7 @@ class SyncUserRoles
         private readonly AuditLogger $audit,
         private readonly AccountGuard $guard,
         private readonly PrivilegeGuard $privileges,
+        private readonly AccessControlLock $lock,
     ) {}
 
     /**
@@ -31,6 +33,12 @@ class SyncUserRoles
     public function __invoke(User $actor, User $target, array $roleIds): User
     {
         return $this->operation->run('user.roles_synced', $target, ['role_ids' => $roleIds], function () use ($actor, $target, $roleIds) {
+            // Serialize with role mutations (M1), then re-read both accounts so the
+            // checks use state committed before the lock was granted.
+            $this->lock->acquire();
+            $actor = User::query()->findOrFail($actor->id);
+            $target = User::query()->findOrFail($target->id);
+
             $this->guard->assertCanAdminister($actor, $target);
 
             if (! $target->isAdmin()) {

@@ -199,11 +199,27 @@ CI (`.github/workflows/ci.yml`):
 
 **Password re-confirmation:** the three endpoints that require `current_password` use the `sensitive` limiter (5 per minute and 30 per hour, per user). Each wrong password is audited as `auth.reconfirm_failed`, without the password.
 
+**Role-change serialization (M1):** `ManageRoles::syncPermissions`, `ManageRoles::delete` and `SyncUserRoles` first take `SELECT … FOR UPDATE` on the protected `system-owner` role row (`AccessControlLock`), then re-read the actor, the role, the target and the holders. As a result:
+
+- A holder who is added or strengthened by a concurrent change is always seen by the next check.
+- There is a single lock taken first, so there is no lock-ordering cycle and no deadlock between these paths.
+- The InnoDB snapshot is taken after the lock wait, so the checks read the latest committed state.
+
+**Versioned permission cache (M2):** `VersionedPermissionRegistrar` replaces Spatie's registrar (through the container's `extend`).
+
+- The cache key is `spatie.permission.cache.<ULID>`. The ULID is stored in the shared cache store under `spatie.permission.cache.version`.
+- After a permission change commits (`DB::afterCommit`), a new ULID is written. A request that read the old data can only write it under the old key, which nothing reads again.
+- A rollback never changes the version. In nested transactions, the change waits for the outermost commit.
+- All instances read the version from the same database or Redis store.
+
+Both behaviors are reproduced with two real processes in `tests/Feature/Concurrency/` (MySQL 8.4).
+
 ## 10. Known limitations and follow-ups
 
 - **Production domains are not decided** (ADR-0003 Q1). SPA cookie auth needs the SPA and the API on the same registrable domain.
 - **No scheduler container** yet, so expired tokens are not pruned automatically (they are still rejected). Add a scheduler that runs `sanctum:prune-expired`.
 - **Rate limiter cache:** the limiter and the permission cache use the database cache store. Redis is recommended before production traffic.
 - **Not in Phase 1:** registration, password reset, email verification, phone OTP, social login, refresh tokens, admin 2FA, Workspaces (D3), and direct user permissions (D4).
-- **Independent review follow-ups (not blocking):** production-only settings should be required at startup (`SESSION_SECURE_COOKIE`, stateful domains, trusted proxies); lock the target row inside the transaction before status and role checks; an admin can still edit their own profile through the admin API; admins without a permission can distinguish existing from missing IDs (403 vs 404); deprecated permissions block managing their holders; strengthen the concurrency test to run the real action on both sides.
+- **Independent review follow-ups (not blocking):** production-only settings should be required at startup (`SESSION_SECURE_COOKIE`, stateful domains, trusted proxies); re-read and lock the target in the account status and account-type actions (role paths already do this); an admin can still edit their own profile through the admin API; admins without a permission can distinguish existing from missing IDs (403 vs 404); deprecated permissions block managing their holders; the last-admin concurrency test still drives one side with raw SQL.
+- **Permission cache in long-running workers:** a queue worker or Octane process builds its registrar once, so it keeps its cache key until it restarts (Spatie resets on Octane requests). No such workers exist yet.
 - **`laravel/boost`:** the `CLAUDE.md`/`AGENTS.md` files that came with the Laravel skeleton ask for `laravel/boost` to be installed and for PHP to be installed on the host. Neither was done; that needs the owner's decision.

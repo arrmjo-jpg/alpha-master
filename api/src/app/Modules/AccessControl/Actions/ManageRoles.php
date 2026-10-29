@@ -5,13 +5,13 @@ namespace App\Modules\AccessControl\Actions;
 use App\Models\User;
 use App\Modules\AccessControl\Models\Permission;
 use App\Modules\AccessControl\Models\Role;
+use App\Modules\AccessControl\Services\AccessControlLock;
 use App\Modules\AccessControl\Services\PrivilegeGuard;
+use App\Modules\AccessControl\Services\VersionedPermissionRegistrar;
 use App\Modules\Core\Audit\AuditLogger;
 use App\Modules\Core\Audit\GuardedOperation;
 use App\Modules\Core\Errors\DomainError;
 use App\Modules\Core\Errors\ErrorCode;
-use Illuminate\Support\Facades\DB;
-use Spatie\Permission\PermissionRegistrar;
 
 /** Role use cases. Protected roles (system-owner) are never changed here. */
 class ManageRoles
@@ -20,6 +20,8 @@ class ManageRoles
         private readonly GuardedOperation $operation,
         private readonly AuditLogger $audit,
         private readonly PrivilegeGuard $guard,
+        private readonly AccessControlLock $lock,
+        private readonly VersionedPermissionRegistrar $registrar,
     ) {}
 
     /**
@@ -58,6 +60,7 @@ class ManageRoles
     public function delete(User $actor, Role $role): void
     {
         $this->operation->run('role.deleted', $role, ['name' => $role->name], function () use ($actor, $role) {
+            [$actor, $role] = $this->lockAndReload($actor, $role);
             $this->assertNotProtected($role);
             // Deleting a role removes its permissions from its holders: only within your own ceiling.
             $this->guard->assertHoldsAll($actor, $role->permissions->pluck('name'));
@@ -65,7 +68,7 @@ class ManageRoles
 
             $holders = $role->users()->pluck('id')->all();
             $role->delete();
-            $this->forgetPermissionCacheAfterCommit();
+            $this->registrar->invalidateAfterCommit();
             $this->audit->record('role.deleted', $role, ['name' => $role->name, 'affected_user_ids' => $holders]);
         });
     }
@@ -79,6 +82,7 @@ class ManageRoles
     public function syncPermissions(User $actor, Role $role, array $permissionNames): Role
     {
         return $this->operation->run('role.permissions_synced', $role, [], function () use ($actor, $role, $permissionNames) {
+            [$actor, $role] = $this->lockAndReload($actor, $role);
             $this->assertNotProtected($role);
 
             $current = $role->permissions->pluck('name');
@@ -95,7 +99,7 @@ class ManageRoles
             }
 
             $role->syncPermissions($permissions);
-            $this->forgetPermissionCacheAfterCommit();
+            $this->registrar->invalidateAfterCommit();
             $this->audit->record('role.permissions_synced', $role, [
                 'added' => $added->all(),
                 'removed' => $removed->all(),
@@ -117,13 +121,20 @@ class ManageRoles
     }
 
     /**
-     * Spatie clears its permission cache inside the transaction; a concurrent
-     * request could rebuild it from the old committed rows before we commit.
-     * Clearing again after commit guarantees the cache reflects the new state.
+     * Takes the access-control lock first (M1), then re-reads the role and the
+     * actor so every check below uses state committed before the lock was granted,
+     * not models loaded earlier in the request.
+     *
+     * @return array{0: User, 1: Role}
      */
-    private function forgetPermissionCacheAfterCommit(): void
+    private function lockAndReload(User $actor, Role $role): array
     {
-        DB::afterCommit(fn () => app(PermissionRegistrar::class)->forgetCachedPermissions());
+        $this->lock->acquire();
+
+        return [
+            User::query()->findOrFail($actor->id),
+            Role::query()->findOrFail($role->id),
+        ];
     }
 
     private function assertNotProtected(Role $role): void

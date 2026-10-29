@@ -7,7 +7,6 @@ use App\Modules\AccessControl\Models\PermissionGroup;
 use App\Modules\AccessControl\Models\Role;
 use App\Modules\Core\Permissions\PermissionRegistry;
 use Illuminate\Support\Facades\DB;
-use Spatie\Permission\PermissionRegistrar;
 
 /**
  * Mirrors the code-defined catalog into the database (idempotent). It never
@@ -18,7 +17,7 @@ class PermissionSynchronizer
 {
     public function __construct(
         private readonly PermissionRegistry $registry,
-        private readonly PermissionRegistrar $registrar,
+        private readonly VersionedPermissionRegistrar $registrar,
     ) {}
 
     /**
@@ -76,7 +75,8 @@ class PermissionSynchronizer
             ];
         });
 
-        $this->registrar->forgetCachedPermissions();
+        // New cache version once committed (also correct when called inside an outer transaction).
+        $this->registrar->invalidateAfterCommit();
 
         return $result;
     }

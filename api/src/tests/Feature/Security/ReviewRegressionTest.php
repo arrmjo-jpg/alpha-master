@@ -3,9 +3,10 @@
 namespace Tests\Feature\Security;
 
 use App\Models\User;
+use App\Modules\AccessControl\Services\VersionedPermissionRegistrar;
 use App\Modules\Core\Audit\AuditLog;
 use App\Modules\Core\Audit\AuditLogger;
-use Illuminate\Cache\Events\ForgettingKey;
+use Illuminate\Cache\Events\KeyWritten;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
@@ -35,7 +36,7 @@ class ReviewRegressionTest extends ApiTestCase
         $this->assertAudited('role.permissions_synced', 'denied', $shared->id);
     }
 
-    /** M2: the permission cache must be cleared after the change commits, not only inside the transaction. */
+    /** M2: the permission-cache version switches only after the change commits (never inside the transaction). */
     public function test_permission_cache_is_cleared_after_commit(): void
     {
         $role = $this->roleWith('users.view');
@@ -43,8 +44,8 @@ class ReviewRegressionTest extends ApiTestCase
         $baseLevel = DB::transactionLevel(); // RefreshDatabase wraps each test in one transaction
 
         $levels = [];
-        Event::listen(ForgettingKey::class, function (ForgettingKey $event) use (&$levels) {
-            if ($event->key === config('permission.cache.key')) {
+        Event::listen(KeyWritten::class, function (KeyWritten $event) use (&$levels) {
+            if ($event->key === VersionedPermissionRegistrar::VERSION_KEY) {
                 $levels[] = DB::transactionLevel();
             }
         });
@@ -53,8 +54,8 @@ class ReviewRegressionTest extends ApiTestCase
             'permissions' => [], 'current_password' => 'password',
         ])->assertOk();
 
-        $this->assertNotEmpty($levels);
-        $this->assertSame($baseLevel, end($levels), 'The last cache clear must happen after the action transaction committed. Levels: '.json_encode($levels));
+        $this->assertNotEmpty($levels, 'The cache version must change after a permission change.');
+        $this->assertSame([$baseLevel], array_values(array_unique($levels)), 'The version may only change after the action transaction committed. Levels: '.json_encode($levels));
     }
 
     /** M3: password re-confirmation is rate-limited per user and failures are audited without the password. */
