@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  laravel:
+    name: Laravel tests (PHP 8.5)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api/src
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.5"
+          extensions: pdo_mysql, pdo_sqlite, bcmath, intl, zip
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Security audit
+        run: composer audit
+
+      - name: Prepare app
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Code style
+        run: vendor/bin/pint --test
+
+      - name: Tests
+        run: php artisan test
+
+  docker:
+    name: Docker build & smoke test
+    runs-on: ubuntu-latest
+    env:
+      COMPOSE_FILE: docker-compose.yml:docker-compose.data.yml:docker-compose.backend.yml:docker-compose.ports.yml
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Create .env
+        run: |
+          {
+            echo "APP_KEY=base64:$(openssl rand -base64 32)"
+            echo "APP_URL=http://localhost:8080"
+            echo "DB_NAME=AlphaMaster"
+            echo "DB_USER=AlphaMaster"
+            echo "DB_PASSWORD=$(openssl rand -hex 24)"
+            echo "DB_ROOT_PASSWORD=$(openssl rand -hex 24)"
+            echo "API_PORT=8080"
+          } > .env
+
+      - name: Validate compose files
+        run: docker compose config --quiet
+
+      - name: Build and start
+        run: docker compose up -d --build --wait --wait-timeout 180
+
+      - name: Migrate
+        run: docker exec AlphaMaster-API php artisan migrate --force
+
+      - name: Smoke tests
+        run: |
+          set -e
+          check() { code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:8080$1"); echo "$1 -> $code"; [ "$code" = "$2" ]; }
+          check /up 200
+          check / 200
+          check /.env 403
+          check /nope.php 403
+
+      - name: Security checks
+        run: |
+          set -e
+          docker exec AlphaMaster-API php -r 'exit(function_exists("exec") || function_exists("shell_exec") || function_exists("proc_open") || function_exists("putenv") ? 1 : 0);'
+          docker exec AlphaMaster-API sh -c '! test -e /usr/local/bin/php-cgi'
+          [ "$(docker exec AlphaMaster-API id -u)" != "0" ]
+          ! curl -sI http://localhost:8080/up | grep -qi '^x-powered-by'
+          docker exec AlphaMaster-API php -r 'exit(version_compare(PHP_VERSION, "8.5.0", ">=") ? 0 : 1);'
+
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs --tail 100
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v

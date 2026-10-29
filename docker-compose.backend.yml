@@ -1,0 +1,39 @@
+# AlphaMaster-API — Laravel on PHP 8.5
+services:
+  api:
+    build: ./api
+    image: alphamaster-api:latest
+    container_name: AlphaMaster-API
+    restart: unless-stopped
+    environment:
+      APP_NAME: AlphaMaster
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_KEY: ${APP_KEY}
+      APP_URL: ${APP_URL:-http://localhost:8080}
+      LOG_CHANNEL: stderr
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: ${DB_NAME}
+      DB_USERNAME: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/run/apache2
+      - /var/lock/apache2
+      - /var/www/html/bootstrap/cache:uid=33,gid=33,mode=0770
+      - /var/www/html/storage/framework/cache:uid=33,gid=33,mode=0770
+      - /var/www/html/storage/framework/sessions:uid=33,gid=33,mode=0770
+      - /var/www/html/storage/framework/views:uid=33,gid=33,mode=0770
+      - /var/www/html/storage/logs:uid=33,gid=33,mode=0770
+    volumes:
+      - alphamaster-storage:/var/www/html/storage/app
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    networks: [alphamaster]

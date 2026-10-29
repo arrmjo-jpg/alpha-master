@@ -1,0 +1,11 @@
+# AlphaMaster — base file (shared networks and volumes)
+# Files are loaded in order via COMPOSE_FILE in .env:
+#   docker-compose.yml + .data + .backend + .ports + .override
+name: alphamaster
+
+networks:
+  alphamaster:
+
+volumes:
+  alphamaster-db-data:
+  alphamaster-storage:

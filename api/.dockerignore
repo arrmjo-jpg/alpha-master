@@ -1,0 +1,13 @@
+.env
+.git
+src/.env
+src/.env.*
+src/vendor
+src/node_modules
+src/tests
+src/database/database.sqlite
+src/storage/logs/*
+src/storage/framework/cache/data/*
+src/storage/framework/sessions/*
+src/storage/framework/views/*
+src/bootstrap/cache/*.php

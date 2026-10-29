@@ -1,0 +1,17 @@
+# AlphaMaster-DB — MySQL 8.4 LTS
+services:
+  db:
+    build: ./db
+    image: alphamaster-db:latest
+    container_name: AlphaMaster-DB
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - alphamaster-db-data:/var/lib/mysql
+    security_opt:
+      - no-new-privileges:true
+    networks: [alphamaster]

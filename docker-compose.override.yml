@@ -1,0 +1,14 @@
+# Local development overrides — remove from COMPOSE_FILE in production
+# Only app code is mounted; vendor stays inside the image (mounting it from Windows is very slow)
+services:
+  api:
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+    volumes:
+      - ./api/src/app:/var/www/html/app:ro
+      - ./api/src/config:/var/www/html/config:ro
+      - ./api/src/database:/var/www/html/database:ro
+      - ./api/src/resources:/var/www/html/resources:ro
+      - ./api/src/routes:/var/www/html/routes:ro
+      - ./api/php/dev.ini:/usr/local/etc/php/conf.d/zzz-dev.ini:ro
