@@ -186,6 +186,17 @@ CI (`.github/workflows/ci.yml`):
 
 **Docker Compose mode:** the default `COMPOSE_FILE` in `.env.example` is production-safe. The dev override (`APP_ENV=local`, `APP_DEBUG=true`, source mounts) is opt-in and must never be used on a server. CI fails if the documented default enables it.
 
+**Audit redaction:** `Core\Audit\SecretRedactor` is applied to every audit context, recursively. It splits each key into words (`bearerToken` and `BEARER_TOKEN` both become `bearer token`) and removes it when:
+
+- any word is always secret (password, pwd, pass, passcode, pin, secret, otp, cookie, session, authorization, bearer, credential, csrf, xsrf, salt); or
+- a word is `token`/`jwt` and the key does not end in a reference suffix (`id`, `count`, `type`, `at`, …); or
+- `key` follows a credential qualifier (`api_key`, `private_key`); or
+- `code` follows a one-time-code qualifier (`otp_code`, `verification_code`).
+
+`token_id`, `tokens` (a count), a plain `key` or `code` and all current context keys are preserved. Values shaped like `Bearer …` or a Sanctum `id|secret` token are dropped under any key.
+
+**CI configuration check:** `.github/ci/check-compose-config.sh` resolves the real Compose configuration from `.env.example` without starting containers. It fails unless the default resolves to `APP_ENV=production`, `APP_DEBUG=false` with no dev override, and the documented dev line resolves to `local`, `true` with the override.
+
 **Password re-confirmation:** the three endpoints that require `current_password` use the `sensitive` limiter (5 per minute and 30 per hour, per user). Each wrong password is audited as `auth.reconfirm_failed`, without the password.
 
 ## 10. Known limitations and follow-ups

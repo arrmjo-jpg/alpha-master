@@ -96,8 +96,9 @@ jobs:
       - name: Validate compose files
         run: |
           docker compose config --quiet
-          # The documented default must never enable the dev override (APP_DEBUG=true).
-          ! grep -E '^COMPOSE_FILE=.*docker-compose\.override\.yml' .env.example
+          # Resolve the documented default and dev configurations (no containers started):
+          # default must be APP_ENV=production / APP_DEBUG=false without the dev override.
+          bash .github/ci/check-compose-config.sh .env.example
 
       - name: Build and start
         run: docker compose up -d --build --wait --wait-timeout 180
