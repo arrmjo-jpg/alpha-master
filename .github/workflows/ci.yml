@@ -15,7 +15,7 @@ concurrency:
 jobs:
   laravel:
     name: Laravel tests (PHP 8.5)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: api/src
@@ -75,7 +75,7 @@ jobs:
 
   docker:
     name: Docker build & smoke test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       COMPOSE_FILE: docker-compose.yml:docker-compose.data.yml:docker-compose.backend.yml:docker-compose.ports.yml
     steps:
