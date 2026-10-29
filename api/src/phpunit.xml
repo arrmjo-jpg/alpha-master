@@ -19,12 +19,20 @@
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>
+        <!-- Throwaway key used only by the test suite -->
+        <env name="APP_KEY" value="base64:okLq7+D7DpZjs+F5evanFz4x2wtE1lt3mfHpY0O46V8="/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="sqlite"/>
-        <env name="DB_DATABASE" value=":memory:"/>
+        <!-- Feature/security tests run on MySQL 8.4 (production engine). Override via real env vars. -->
+        <env name="DB_CONNECTION" value="mysql"/>
+        <env name="DB_HOST" value="127.0.0.1"/>
+        <env name="DB_PORT" value="3306"/>
+        <env name="DB_DATABASE" value="alphamaster_test"/>
+        <env name="DB_USERNAME" value="root"/>
+        <env name="DB_PASSWORD" value=""/>
+        <env name="APP_LOCALE" value="ar"/>
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>

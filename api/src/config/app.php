@@ -78,7 +78,11 @@ return [
     |
     */
 
-    'locale' => env('APP_LOCALE', 'en'),
+    'locale' => env('APP_LOCALE', 'ar'),
+
+    // Locales the API negotiates via Accept-Language (ADR-0007). The first-listed
+    // match wins on equal quality; anything else falls back to 'locale'.
+    'supported_locales' => array_values(array_filter(explode(',', (string) env('APP_SUPPORTED_LOCALES', 'ar,en')))),
 
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
 

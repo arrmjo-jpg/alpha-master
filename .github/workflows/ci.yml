@@ -19,6 +19,24 @@ jobs:
     defaults:
       run:
         working-directory: api/src
+    # Feature, security and migration tests run on MySQL 8.4 — the production engine (ADR-0011).
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: alphamaster_test
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot --silent"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+    env:
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: alphamaster_test
+      DB_USERNAME: root
+      DB_PASSWORD: root
     steps:
       - uses: actions/checkout@v5
 
@@ -42,8 +60,18 @@ jobs:
       - name: Code style
         run: vendor/bin/pint --test
 
-      - name: Tests
-        run: php artisan test
+      - name: Migrations, rollback and permission sync
+        run: |
+          set -e
+          php artisan migrate:fresh --seed --force
+          php artisan access:sync-permissions
+          php artisan access:sync-permissions   # must be idempotent
+          php artisan migrate:rollback --force
+          php artisan migrate --force
+          php artisan db:seed --force
+
+      - name: Unit, API feature, security and MySQL integration tests
+        run: vendor/bin/phpunit
 
   docker:
     name: Docker build & smoke test
@@ -66,13 +94,19 @@ jobs:
           } > .env
 
       - name: Validate compose files
-        run: docker compose config --quiet
+        run: |
+          docker compose config --quiet
+          # Resolve the documented default and dev configurations (no containers started):
+          # default must be APP_ENV=production / APP_DEBUG=false without the dev override.
+          bash .github/ci/check-compose-config.sh .env.example
 
       - name: Build and start
         run: docker compose up -d --build --wait --wait-timeout 180
 
-      - name: Migrate
-        run: docker exec AlphaMaster-API php artisan migrate --force
+      - name: Migrate and sync permissions
+        run: |
+          docker exec AlphaMaster-API php artisan migrate --force
+          docker exec AlphaMaster-API php artisan access:sync-permissions
 
       - name: Smoke tests
         run: |
@@ -82,6 +116,24 @@ jobs:
           check / 200
           check /.env 403
           check /nope.php 403
+
+      - name: Auth flow on the hardened image
+        run: |
+          set -e
+          # Throwaway owner, created inside the app (there is no HTTP bootstrap endpoint).
+          docker exec -i AlphaMaster-API php < .github/ci/create-smoke-owner.php
+          code() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
+          expect() { echo "$1 -> $2"; [ "$2" = "$3" ]; }
+          curl -s http://localhost:8080/api/v1/auth/me | grep -q '"code":"UNAUTHENTICATED"'
+          login() { curl -s -H 'Content-Type: application/json' -d "{\"identifier\":\"ci.owner\",\"password\":\"$1\",\"device_name\":\"ci\",\"client\":\"admin\"}" http://localhost:8080/api/v1/auth/tokens; }
+          login wrong | grep -q '"code":"INVALID_CREDENTIALS"'
+          token=$(login 'Ci-password-12345' | sed -E 's/.*"token":"([^"]+)".*/\1/')
+          auth=(-H "Authorization: Bearer $token")
+          expect "me" "$(code "${auth[@]}" http://localhost:8080/api/v1/auth/me)" 200
+          expect "admin users" "$(code "${auth[@]}" http://localhost:8080/api/v1/admin/users)" 200
+          expect "permissions" "$(code "${auth[@]}" http://localhost:8080/api/v1/admin/access/permissions)" 200
+          expect "logout" "$(code -X POST "${auth[@]}" http://localhost:8080/api/v1/auth/logout)" 204
+          expect "revoked token" "$(code "${auth[@]}" http://localhost:8080/api/v1/auth/me)" 401
 
       - name: Security checks
         run: |
