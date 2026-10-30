@@ -1,0 +1,17 @@
+# AlphaMaster-Admin — React admin on nginx (static files + same-origin proxy to the API)
+services:
+  admin:
+    build: ./admin
+    image: alphamaster-admin:latest
+    container_name: AlphaMaster-Admin
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    networks: [alphamaster]

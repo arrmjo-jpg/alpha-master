@@ -33,6 +33,21 @@ class RoleManagementTest extends ApiTestCase
         $this->assertAudited('role.created');
     }
 
+    public function test_lists_roles_with_their_user_counts_under_the_sanctum_guard(): void
+    {
+        // withCount('users') is built before any role is loaded, so Spatie resolves the
+        // user model from the default guard, which auth:sanctum switches to "sanctum".
+        $editor = $this->roleWith('roles.view');
+        $this->adminWith()->assignRole($editor);
+        $this->actingAsAdminClient($this->adminWith('roles.view'));
+
+        $response = $this->getJson('/api/v1/admin/access/roles')->assertOk();
+
+        $listed = collect($response->json('data'))->firstWhere('id', $editor->id);
+        $this->assertSame(1, $listed['users_count']);
+        $this->getJson("/api/v1/admin/access/roles/{$editor->id}")->assertOk()->assertJsonPath('data.users_count', 1);
+    }
+
     public function test_cannot_create_a_role_with_a_duplicate_or_protected_name(): void
     {
         $this->actingAsAdminClient($this->adminWith('roles.create'));

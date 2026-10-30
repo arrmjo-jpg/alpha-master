@@ -1,10 +1,12 @@
 # Test suite against an isolated, throwaway MySQL 8.4 (never the real AlphaMaster-DB).
-# Usage: docker compose -f docker-compose.test.yml run --rm --build api-test
+# Usage: docker compose -f docker-compose.test.yml run --rm --build --name AlphaMaster-API-Test api-test
+#        docker compose -f docker-compose.test.yml down   # removes AlphaMaster-TestDB afterwards
 name: alphamaster-test
 
 services:
   db-test:
     image: mysql:8.4
+    container_name: AlphaMaster-TestDB
     environment:
       MYSQL_ROOT_PASSWORD: test
       MYSQL_DATABASE: alphamaster_test

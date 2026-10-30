@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Tokens (HSL channels). Brand blue #3B7597 = 202 44% 41%. */
+@layer base {
+  :root {
+    --background: 210 20% 97%;
+    --foreground: 210 30% 12%;
+    --card: 0 0% 100%;
+    --muted: 210 20% 94%;
+    --muted-foreground: 210 12% 36%;
+    --border: 210 18% 86%;
+    --input: 210 14% 70%;
+    --ring: 202 60% 42%;
+    --primary: 202 44% 41%;
+    --primary-foreground: 0 0% 100%;
+    --link: 202 52% 34%;
+    --destructive: 0 65% 42%;
+    --success: 152 60% 26%;
+    --warning: 32 92% 30%;
+    --brand-field: 202 44% 41%;
+    --font-sans: 'Tajawal', 'Inter', system-ui, sans-serif;
+    color-scheme: light;
+  }
+
+  .dark {
+    --background: 210 26% 7%;
+    --foreground: 210 20% 92%;
+    --card: 210 22% 10%;
+    --muted: 210 18% 14%;
+    --muted-foreground: 210 12% 66%;
+    --border: 210 16% 21%;
+    --input: 210 12% 38%;
+    --ring: 202 70% 62%;
+    --primary: 202 44% 41%;
+    --primary-foreground: 0 0% 100%;
+    --link: 202 70% 72%;
+    --destructive: 0 75% 68%;
+    --success: 150 50% 58%;
+    --warning: 38 92% 62%;
+    --brand-field: 202 44% 24%;
+    color-scheme: dark;
+  }
+
+  html[lang='en'] {
+    --font-sans: 'Inter', 'Tajawal', system-ui, sans-serif;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply min-h-dvh bg-background font-sans text-foreground antialiased;
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.25);
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
