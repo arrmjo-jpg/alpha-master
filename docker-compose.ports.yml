@@ -3,3 +3,6 @@ services:
   api:
     ports:
       - "${API_PORT:-8080}:8080"
+  admin:
+    ports:
+      - "${ADMIN_PORT:-3000}:8080"

@@ -73,11 +73,41 @@ jobs:
       - name: Unit, API feature, security and MySQL integration tests
         run: vendor/bin/phpunit
 
+  admin:
+    name: Admin web (typecheck, test, build)
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: admin
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: admin/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Security audit
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
   docker:
     name: Docker build & smoke test
     runs-on: ubuntu-24.04
     env:
-      COMPOSE_FILE: docker-compose.yml:docker-compose.data.yml:docker-compose.backend.yml:docker-compose.ports.yml
+      COMPOSE_FILE: docker-compose.yml:docker-compose.data.yml:docker-compose.backend.yml:docker-compose.admin.yml:docker-compose.ports.yml
     steps:
       - uses: actions/checkout@v5
 
@@ -91,6 +121,7 @@ jobs:
             echo "DB_PASSWORD=$(openssl rand -hex 24)"
             echo "DB_ROOT_PASSWORD=$(openssl rand -hex 24)"
             echo "API_PORT=8080"
+            echo "ADMIN_PORT=3000"
           } > .env
 
       - name: Validate compose files
@@ -116,6 +147,18 @@ jobs:
           check / 200
           check /.env 403
           check /nope.php 403
+
+      - name: Admin container (static SPA + same-origin API proxy)
+        run: |
+          set -e
+          check() { code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:3000$1"); echo "admin $1 -> $code"; [ "$code" = "$2" ]; }
+          check /healthz 200
+          check / 200
+          check /roles 200
+          check /sanctum/csrf-cookie 204
+          check /api/v1/auth/me 401
+          curl -sI http://localhost:3000/ | grep -qi "^content-security-policy: default-src 'self'"
+          [ "$(docker exec AlphaMaster-Admin id -u)" != "0" ]
 
       - name: Auth flow on the hardened image
         run: |
